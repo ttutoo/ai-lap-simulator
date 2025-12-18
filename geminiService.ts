@@ -1,66 +1,57 @@
 
 import { GoogleGenAI, Type } from "@google/genai";
 
-/**
- * Simulates security handler logic using Gemini AI.
- * Analyzes a request type against a specific handler and returns a structured evaluation.
- */
+// Use Gemini AI to simulate the logic of various security handlers
 export async function simulateHandlerLogic(handlerName: string, requestType: string) {
-  // Always create a new GoogleGenAI instance right before making an API call 
-  // to ensure it uses the most up-to-date configuration/key as per guidelines.
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
   try {
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
-      contents: `Đóng vai là một xử lý Logic trong chuỗi Handler Chain bảo mật. 
-      Handler hiện tại: ${handlerName}. 
-      Yêu cầu đầu vào: ${requestType}. 
-      Hãy phân tích và trả về một JSON object duy nhất có định dạng: 
-      { 
-        "decision": "PASS" | "FAIL", 
-        "reason": "Giải thích ngắn gọn lý do tại sao cho qua hoặc chặn bằng tiếng Việt", 
-        "logs": "Mã log kỹ thuật giả lập (vd: ERR_AUTH_401, OK_200)" 
+      contents: `Bạn là một chuyên gia bảo mật hệ thống. Hãy phân tích xem yêu cầu sau có vượt qua được lớp kiểm tra này không.
+      Lớp kiểm tra (Handler): ${handlerName}
+      Loại yêu cầu (Request): ${requestType}
+      
+      Quy tắc:
+      - Nếu là SQL Injection, phải bị chặn ở Firewall.
+      - Nếu là Expired Token, phải bị chặn ở Authentication.
+      - Nếu là DDoS, phải bị chặn ở Rate Limiter.
+      - Nếu thiếu trường dữ liệu, phải bị chặn ở Validation.
+      
+      Trả về JSON:
+      {
+        "decision": "PASS" hoặc "FAIL",
+        "reason": "Giải thích ngắn gọn lý do bằng tiếng Việt",
+        "logs": "Mã lỗi kỹ thuật (vd: ERR_401, OK_200)"
       }`,
       config: {
         responseMimeType: "application/json",
-        // Enforce structured output using responseSchema for improved reliability and senior-level robustness.
         responseSchema: {
           type: Type.OBJECT,
           properties: {
-            decision: {
-              type: Type.STRING,
-              description: "The security decision for this handler (PASS or FAIL)",
-            },
-            reason: {
-              type: Type.STRING,
-              description: "Brief Vietnamese explanation for the decision",
-            },
-            logs: {
-              type: Type.STRING,
-              description: "Technical log simulation code (e.g., ERR_401, OK_200)",
-            }
+            decision: { type: Type.STRING },
+            reason: { type: Type.STRING },
+            logs: { type: Type.STRING }
           },
-          required: ["decision", "reason", "logs"],
-          propertyOrdering: ["decision", "reason", "logs"]
+          required: ["decision", "reason", "logs"]
         }
       }
     });
 
-    // Accessing the .text property directly as per @google/genai guidelines.
-    const jsonStr = response.text;
-    if (!jsonStr) {
-      throw new Error("Received empty response from Gemini API");
+    // Safely extract and parse the JSON response
+    const text = response.text?.trim();
+    if (!text) {
+      throw new Error("AI response text is empty or undefined");
     }
-
-    return JSON.parse(jsonStr);
+    
+    return JSON.parse(text);
   } catch (error) {
-    console.error("Simulation API Error:", error);
-    // Return a safe fallback response in case of API or parsing failure.
+    console.error("AI Simulation Error:", error);
     return { 
       decision: "FAIL", 
-      reason: "Lỗi kết nối AI Engine. Vui lòng thử lại sau.", 
-      logs: "SYSTEM_ERR_AI" 
+      reason: "Hệ thống AI gặp sự cố khi phân tích. Vui lòng thử lại.", 
+      logs: "SYS_ERR_500" 
     };
   }
 }
+
